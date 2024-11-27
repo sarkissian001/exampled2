@@ -1,0 +1,81 @@
+package com.example.db2tester;
+
+import org.yaml.snakeyaml.Yaml;
+
+import java.io.InputStream;
+import java.sql.*;
+import java.util.Map;
+
+public class DB2ConnectionTester {
+    public static void main(String[] args) {
+        try {
+            // Load YAML Configuration
+            Map<String, Object> config = loadYaml("db.yaml");
+            Map<String, String> dbConfig = (Map<String, String>) config.get("db");
+
+            // Extract DB Configuration
+            String url = dbConfig.get("url");
+            String user = dbConfig.get("username");
+            String password = dbConfig.get("password");
+            String driver = dbConfig.get("driver");
+            String schema = dbConfig.get("schema");
+
+            // Load the DB2 Driver
+            Class.forName(driver);
+
+            // Connect to DB2
+            try (Connection conn = DriverManager.getConnection(url, user, password)) {
+                System.out.println("Connected to DB2!");
+
+                // Set the schema if defined
+                if (schema != null && !schema.isEmpty()) {
+                    try (Statement stmt = conn.createStatement()) {
+                        stmt.execute("SET SCHEMA " + schema);
+                        System.out.println("Schema set to: " + schema);
+                    }
+                }
+
+                // Call Stored Procedure
+                String procedureName = "YOUR_PROCEDURE_NAME"; // Replace with your procedure name
+                callStoredProcedure(conn, procedureName);
+
+            } catch (SQLException e) {
+                System.err.println("Error connecting to DB2: " + e.getMessage());
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static Map<String, Object> loadYaml(String resourcePath) throws Exception {
+        Yaml yaml = new Yaml();
+        try (InputStream inputStream = DB2ConnectionTester.class.getClassLoader().getResourceAsStream(resourcePath)) {
+            if (inputStream == null) {
+                throw new RuntimeException("YAML file not found: " + resourcePath);
+            }
+            return yaml.load(inputStream);
+        }
+    }
+
+    private static void callStoredProcedure(Connection conn, String procedureName) {
+        try {
+            // Define the stored procedure call (adjust parameters as needed)
+            String call = "{call " + procedureName + "(?, ?)}"; // Adjust for your procedure signature
+            try (CallableStatement stmt = conn.prepareCall(call)) {
+                // Set input parameters
+                stmt.setInt(1, 123); // Example input
+                stmt.registerOutParameter(2, Types.VARCHAR); // Example output
+
+                // Execute the procedure
+                stmt.execute();
+
+                // Retrieve output parameter
+                String output = stmt.getString(2);
+                System.out.println("Stored Procedure Output: " + output);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error calling stored procedure: " + e.getMessage());
+        }
+    }
+}
